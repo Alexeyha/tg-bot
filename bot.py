@@ -5,7 +5,8 @@ import aiohttp
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.types import ParseMode
-
+from aiogram.dispatcher.webhook import SendMessage
+from aiogram.utils.executor import start_webhook
 from aiogram.utils.emoji import emojize
 from aiogram.utils.executor import start_polling
 from aiogram.utils.markdown import bold, code, italic, text
@@ -16,6 +17,11 @@ from config import TOKEN
 #import my_network
 # Configure bot here
 API_TOKEN = TOKEN
+WEBHOOK_HOST = 'https://transtylebot.herokuapp.com'  # Здесь указываем https://<название_приложения>.herokuapp.com
+WEBHOOK_PATH = f'/webhook/{API_TOKEN}'
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+WEBAPP_HOST = '0.0.0.0'  # Слушаем все подключения к нашему приложению
+WEBAPP_PORT = os.environ.get('PORT') 
 #PROXY_URL = 'socks5://178.128.203.1:1080'  # Or 'socks5://host:port'
 
 # NOTE: If authentication is required in your proxy then uncomment next line and change login/password for it
@@ -84,6 +90,32 @@ async def download_style(message: types.Message, state: FSMContext):
 async def handle_docs_photo(message):
     await message.photo[-1].download('test.jpg')
 '''
+async def on_startup(dp):
+    await bot.set_webhook(WEBHOOK_URL)
+    # insert code here to run it after start
 
+
+async def on_shutdown(dp):
+    logging.warning('Shutting down..')
+
+    # insert code here to run it before shutdown
+
+    # Remove webhook (not acceptable in some cases)
+    await bot.delete_webhook()
+
+    # Close DB connection (if used)
+    await dp.storage.close()
+    await dp.storage.wait_closed()
+
+    logging.warning('Bye!')
+    
 if __name__ == '__main__':
-    start_polling(dp, skip_updates=True)
+    start_webhook(
+        dispatcher=dp,
+        webhook_path=WEBHOOK_PATH,
+        on_startup=on_startup,
+        on_shutdown=on_shutdown,
+        skip_updates=True,
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
+    )
